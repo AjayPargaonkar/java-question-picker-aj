@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/java-question-picker-aj/static/css/main.0c01621e.css",
-    "main.js": "/java-question-picker-aj/static/js/main.9e04b59f.js",
+    "main.js": "/java-question-picker-aj/static/js/main.03d55da2.js",
     "static/js/453.79569ba9.chunk.js": "/java-question-picker-aj/static/js/453.79569ba9.chunk.js",
     "index.html": "/java-question-picker-aj/index.html",
     "main.0c01621e.css.map": "/java-question-picker-aj/static/css/main.0c01621e.css.map",
-    "main.9e04b59f.js.map": "/java-question-picker-aj/static/js/main.9e04b59f.js.map",
+    "main.03d55da2.js.map": "/java-question-picker-aj/static/js/main.03d55da2.js.map",
     "453.79569ba9.chunk.js.map": "/java-question-picker-aj/static/js/453.79569ba9.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.0c01621e.css",
-    "static/js/main.9e04b59f.js"
+    "static/js/main.03d55da2.js"
   ]
 }
