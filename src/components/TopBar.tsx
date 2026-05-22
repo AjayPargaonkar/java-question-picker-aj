@@ -8,6 +8,7 @@ import CodeIcon from "@mui/icons-material/Code";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import InsightsIcon from "@mui/icons-material/Insights";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { Topic } from "../data/questions";
 import type { ThemeMode } from "../theme";
@@ -106,6 +107,14 @@ export default function TopBar({
 
         <Box sx={{ flex: 1 }} />
 
+        <Tooltip title="My progress">
+          <IconButton
+            onClick={() => navigate("/progress")}
+            color={location.pathname.startsWith("/progress") ? "primary" : "inherit"}
+          >
+            <InsightsIcon />
+          </IconButton>
+        </Tooltip>
         <Tooltip title="Admin">
           <IconButton
             onClick={() => navigate("/admin")}

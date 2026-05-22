@@ -4,43 +4,40 @@ Three views of the same data: **IndexedDB (what we use)**, plus **Firestore** an
 
 ---
 
-## 1. IndexedDB (current plan, via Dexie)
+## 1. IndexedDB (implemented, via Dexie)
 
 Non-relational, key-value-with-indexes. Lives in the browser per origin.
+See [src/lib/db.ts](../src/lib/db.ts).
 
-### Stores
+### Stores — `JavaPracticeDB` (version 1)
 
 ```
-db: JavaQuestionPicker (version 1)
-
-answers
-  ++id            auto-increment primary key
-  questionId      indexed
-  language        "java" | "pseudocode" | ...
-  code            string
-  notes           string
-  updatedAt       number (epoch ms), indexed
-
 progress
-  questionId      primary key
-  status          "attempted" | "solved"
-  solvedAt        number | null
+  qid          primary key — stable question id (see questionId.ts)
+  topicId      indexed
+  status       "attempted" | "solved"
+  solvedAt     number | null   (epoch ms), indexed
+  firstSeenAt  number
+  updatedAt    number, indexed
 
-bookmarks
-  questionId      primary key
-  createdAt       number
-
-attachments       (optional, if storing files/images)
-  ++id
-  questionId      indexed
-  filename
-  blob            Blob
-  createdAt
+attempts        append-only activity log
+  ++id         auto-increment primary key
+  qid          indexed
+  topicId      indexed
+  at           number (epoch ms), indexed
+  kind         "run" | "solved"
 ```
+
+### Stable question id
+- Questions are identified by `questionId(topicId, text)` — a djb2 hash of the
+  topic id + question text ([src/lib/questionId.ts](../src/lib/questionId.ts)).
+- This is **not** the array index — so reordering / inserting / removing
+  questions in `questions.ts` never corrupts saved progress.
 
 ### Notes
 - Questions themselves are **not** stored here — they come from `src/data/questions.ts`.
-- IndexedDB has no joins; correlate by `questionId` in JS.
+- Code drafts still live in `localStorage` (keyed per topic+index).
+- IndexedDB has no joins; correlate by `qid` in JS.
 - Storage budget: GBs on desktop, ~1 GB on iOS. See [storage.md](./storage.md).
 
 ---

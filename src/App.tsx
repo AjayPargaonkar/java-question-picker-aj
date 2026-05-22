@@ -11,6 +11,7 @@ import Practice from "./pages/Practice";
 import Theory from "./pages/Theory";
 import PredictOutput from "./pages/PredictOutput";
 import Admin from "./pages/Admin";
+import Progress from "./pages/Progress";
 import RequireAuth from "./components/RequireAuth";
 
 export default function App() {
@@ -60,6 +61,14 @@ export default function App() {
               element={
                 <RequireAuth>
                   <Admin themeMode={themeMode} onToggleTheme={cycleTheme} />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/progress"
+              element={
+                <RequireAuth>
+                  <Progress themeMode={themeMode} onToggleTheme={cycleTheme} />
                 </RequireAuth>
               }
             />

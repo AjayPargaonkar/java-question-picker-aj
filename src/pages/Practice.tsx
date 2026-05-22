@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, useMediaQuery } from "@mui/material";
+import { useLiveQuery } from "dexie-react-hooks";
 import { Allotment } from "allotment";
 import "allotment/dist/style.css";
 
 import { TOPICS } from "../data/questions";
 import { boilerplate, getJavaVersion, runJava } from "../lib/piston";
+import { questionId } from "../lib/questionId";
+import { db, recordAttempt, recordSolved, resetTopic } from "../lib/db";
 import { useAuth } from "../context/AuthContext";
 import type { ThemeMode } from "../theme";
 
@@ -17,21 +20,8 @@ import CodeEditor from "../components/CodeEditor";
 import ShortcutsDialog from "../components/ShortcutsDialog";
 
 const TOPIC_KEY  = "java_practice_current_topic";
-const solvedKey  = (id: string) => `java_practice_solved_${id}`;
 const currentKey = (id: string) => `java_practice_current_${id}`;
 const codeKey    = (topicId: string, qid: number) => `java_practice_code_${topicId}_${qid}`;
-
-function readSet(key: string): Set<number> {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? new Set<number>(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-function writeSet(key: string, set: Set<number>) {
-  localStorage.setItem(key, JSON.stringify(Array.from(set)));
-}
 
 type Props = {
   themeMode: ThemeMode;
@@ -47,16 +37,48 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
   );
   const currentTopic = TOPICS.find((t) => t.id === currentTopicId) ?? TOPICS[0];
 
-  const [solvedIds, setSolvedIds] = useState<Set<number>>(() => readSet(solvedKey(currentTopicId)));
+  // stable id for each question in the current topic — survives reordering
+  const qids = useMemo(
+    () => currentTopic.questions.map((q) => questionId(currentTopicId, q)),
+    [currentTopicId, currentTopic.questions]
+  );
+
+  // ---- progress (IndexedDB via Dexie) -------------------------------------
+  const progressRows = useLiveQuery(
+    () => db.progress.where("topicId").equals(currentTopicId).toArray(),
+    [currentTopicId]
+  );
+  // solved questions of the current topic, expressed as array indices
+  const solvedIds = useMemo(() => {
+    const solvedQids = new Set(
+      (progressRows ?? []).filter((r) => r.status === "solved").map((r) => r.qid)
+    );
+    const set = new Set<number>();
+    qids.forEach((qid, i) => {
+      if (solvedQids.has(qid)) set.add(i);
+    });
+    return set;
+  }, [progressRows, qids]);
+
+  const allSolved = useLiveQuery(
+    () => db.progress.where("status").equals("solved").toArray(),
+    []
+  );
+  const solvedCounts = useMemo(() => {
+    const out: Record<string, number> = {};
+    TOPICS.forEach((t) => { out[t.id] = 0; });
+    (allSolved ?? []).forEach((r) => {
+      if (out[r.topicId] !== undefined) out[r.topicId] += 1;
+    });
+    // keep the current topic exact (only counts questions that still exist)
+    out[currentTopicId] = solvedIds.size;
+    return out;
+  }, [allSolved, currentTopicId, solvedIds]);
+
+  // ---- session state ------------------------------------------------------
   const [currentId, setCurrentId] = useState<number | null>(() => {
     const raw = localStorage.getItem(currentKey(currentTopicId));
     return raw !== null ? Number(raw) : null;
-  });
-
-  const [solvedCounts, setSolvedCounts] = useState<Record<string, number>>(() => {
-    const out: Record<string, number> = {};
-    TOPICS.forEach((t) => { out[t.id] = readSet(solvedKey(t.id)).size; });
-    return out;
   });
 
   const [code, setCode] = useState<string>(() => {
@@ -69,6 +91,14 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
   const [isRunning, setIsRunning] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [javaVersion, setJavaVersion] = useState<string>("");
+
+  // self-heal: drop a stored question index that no longer exists
+  useEffect(() => {
+    if (currentId !== null && currentId >= currentTopic.questions.length) {
+      setCurrentId(null);
+      setCode(boilerplate("Pick a question to get started"));
+    }
+  }, [currentId, currentTopic.questions.length]);
 
   const saveTimer = useRef<number | null>(null);
   useEffect(() => {
@@ -84,10 +114,6 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
   }, []);
 
   useEffect(() => { localStorage.setItem(TOPIC_KEY, currentTopicId); }, [currentTopicId]);
-  useEffect(() => {
-    writeSet(solvedKey(currentTopicId), solvedIds);
-    setSolvedCounts((prev) => ({ ...prev, [currentTopicId]: solvedIds.size }));
-  }, [solvedIds, currentTopicId]);
   useEffect(() => {
     const k = currentKey(currentTopicId);
     if (currentId === null) localStorage.removeItem(k);
@@ -111,49 +137,73 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
     [currentTopicId, currentTopic.questions]
   );
 
+  // remembers the last few picked indices so the picker doesn't keep
+  // cycling the same questions; reset on topic switch / progress reset.
+  const recentRef = useRef<number[]>([]);
+
   const pickRandomFromSet = useCallback(
     (skipSolved: Set<number>) => {
+      const n = currentTopic.questions.length;
       const unsolved: number[] = [];
-      for (let i = 0; i < currentTopic.questions.length; i++) {
+      for (let i = 0; i < n; i++) {
         if (!skipSolved.has(i)) unsolved.push(i);
       }
       if (unsolved.length === 0) {
         setCurrentId(null);
+        recentRef.current = [];
         return;
       }
-      const idx = unsolved[Math.floor(Math.random() * unsolved.length)];
+
+      // never re-pick the question already on screen…
+      let pool = unsolved.filter((i) => i !== currentId);
+      if (pool.length === 0) pool = unsolved; // …unless it's the only one left
+
+      // …and avoid recently shown questions, while keeping the pool non-empty
+      const fresh = pool.filter((i) => !recentRef.current.includes(i));
+      const finalPool = fresh.length > 0 ? fresh : pool;
+
+      const idx = finalPool[Math.floor(Math.random() * finalPool.length)];
+
+      // cap history so it can never swallow the whole pool
+      const cap = Math.min(5, Math.max(0, unsolved.length - 1));
+      recentRef.current = [idx, ...recentRef.current.filter((i) => i !== idx)].slice(0, cap);
+
       setCurrentId(idx);
       loadCodeFor(idx);
       setOutput({ text: "// Output will appear here after you Run.", kind: "idle" });
     },
-    [currentTopic.questions, loadCodeFor]
+    [currentTopic.questions, currentId, loadCodeFor]
   );
 
   const pickRandom = useCallback(() => pickRandomFromSet(solvedIds), [pickRandomFromSet, solvedIds]);
 
   const markSolved = useCallback(() => {
     if (currentId === null) return;
+    const qid = qids[currentId];
+    if (!qid) return;
     const next = new Set(solvedIds);
     next.add(currentId);
-    setSolvedIds(next);
+    void recordSolved(qid, currentTopicId);
     pickRandomFromSet(next);
-  }, [currentId, solvedIds, pickRandomFromSet]);
+  }, [currentId, qids, solvedIds, currentTopicId, pickRandomFromSet]);
 
   const resetAll = useCallback(() => {
     if (!window.confirm(`Reset progress for "${currentTopic.name}"?`)) return;
-    setSolvedIds(new Set());
+    void resetTopic(currentTopicId);
     setCurrentId(null);
+    recentRef.current = [];
     loadCodeFor(null);
-  }, [currentTopic.name, loadCodeFor]);
+  }, [currentTopic.name, currentTopicId, loadCodeFor]);
 
   const switchTopic = useCallback((id: string) => {
     const next = TOPICS.find((t) => t.id === id);
     if (!next) return;
     setCurrentTopicId(id);
-    const nextSolved = readSet(solvedKey(id));
-    setSolvedIds(nextSolved);
+    recentRef.current = [];
     const rawCurrent = localStorage.getItem(currentKey(id));
-    const nextCurrent = rawCurrent !== null ? Number(rawCurrent) : null;
+    const parsed = rawCurrent !== null ? Number(rawCurrent) : null;
+    const nextCurrent =
+      parsed !== null && parsed >= 0 && parsed < next.questions.length ? parsed : null;
     setCurrentId(nextCurrent);
     const savedCode =
       nextCurrent !== null ? localStorage.getItem(codeKey(id, nextCurrent)) : null;
@@ -175,6 +225,9 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
     if (!code.trim() || isRunning) return;
     setIsRunning(true);
     setOutput({ text: "Sending to local Piston…", kind: "running" });
+    if (currentId !== null && qids[currentId]) {
+      void recordAttempt(qids[currentId], currentTopicId, "run");
+    }
     try {
       const result = await runJava(code);
       setOutput({ text: result.output, kind: result.kind, timeMs: result.timeMs, exitCode: result.exitCode });
@@ -186,7 +239,7 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
     } finally {
       setIsRunning(false);
     }
-  }, [code, isRunning]);
+  }, [code, isRunning, currentId, qids, currentTopicId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

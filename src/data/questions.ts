@@ -51,7 +51,16 @@ Output : 4
   "Rotate an array to the right by k positions. Input: int[] arr = {1,2,3,4,5,6,7}; int k = 3;",
   "Move all zeroes to the end of the array while keeping non-zero order. Input: int[] arr = {0,1,0,3,12};",
   "Find the missing number in an array of 1..n with one number missing. Input: int[] arr = {1,2,4,5,6}; n = 6;",
-  "Find the duplicate number in an array of 1..n where one number repeats. Input: int[] arr = {1,3,4,2,2};",
+  `Find the duplicate number in an array of 1..n where one number repeats. 
+    Input: int[] arr = {1,3,4,2,2};
+    Output:- 2
+
+    Problem can be solve using
+ 1. HashSet to track seen numbers (O(n) time, O(n) space)
+ 2. Sorting the array and checking adjacent elements (O(n log n) time, O(1) space)
+ 3. Floyd's Tortoise and Hare (Cycle Detection) algorithm (O(n) time, O(1) space)
+
+  `,
   "Find the pair in the array whose sum equals a target. Input: int[] arr = {2,7,11,15}; target = 9;",
   `Find the maximum subarray sum (Kadane's algorithm). 
    Input: int[] arr = {-2,1,-3,4,-1,2,1,-5,4};
@@ -88,7 +97,15 @@ Output : 4
   "Find the intersection of two arrays. Input: int[] a = {1,2,2,1}; int[] b = {2,2};",
   "Find the union of two arrays (distinct values). Input: int[] a = {1,2,2,3}; int[] b = {2,3,4};",
   "Count the number of even and odd numbers in an array. Input: int[] arr = {1,2,3,4,5,6,7,8};",
-  "Find the frequency of each element in an array. Input: int[] arr = {1,2,2,3,3,3,4};",
+  `Find the frequency of each element in an array. 
+  Input: int[] arr = {1,2,2,3,3,3,4};
+  Output:{1: 1, 2: 2, 3: 3, 4: 1}
+
+  Problem Can Be Solved Using:
+  1. HashMap to count frequencies (O(n) time, O(n) space)
+  2. Sorting the array and counting adjacent elements (O(n log n) time, O(1) space)
+  3. Stream API with groupingBy (O(n) time, O(n) space)
+  `,
   "Check if an array is sorted in ascending order. Input: int[] arr = {1,2,3,5,4};",
   `
   Find the leaders in an array — elements greater than all elements to their right. 
@@ -97,7 +114,14 @@ Output : 4
   `
   ,
   "Rearrange the array so that positive and negative numbers alternate. Input: int[] arr = {1,2,3,-4,-1,4};",
-  "Left rotate an array by k positions using the reverse trick (reverse 0..k-1, reverse k..n-1, reverse 0..n-1). Input: int[] arr = {1,2,3,4,5}; int k = 2;",
+  `Left rotate an array by k positions using the reverse trick (reverse 0..k-1, reverse k..n-1, reverse 0..n-1). 
+   Input: int[] arr = {1,2,3,4,5}; int k = 2;
+   1st rotation: 2 3 4 5 1
+   2nd rotation: 3 4 5 1 2
+   Output: {3,4,5,1,2}
+
+   
+  `,
   "Left rotate an array by one position. Input: int[] arr = {1,2,3,4,5}; Output: {2,3,4,5,1}",
   "Right rotate an array by one position. Input: int[] arr = {1,2,3,4,5}; Output: {5,1,2,3,4}",
   "Find the maximum number of consecutive 1s in a binary array. Input: int[] arr = {1,1,0,1,1,1};",
@@ -118,7 +142,16 @@ Output : 4
   "Print every subarray of an array using nested loops. Input: int[] arr = {1,2,3};",
   "Find the sum of all subarrays in O(n) using the contribution technique arr[i] * (i+1) * (n-i). Input: int[] arr = {1,2,3};",
   "Find the third-largest distinct element in an array in a single pass. Input: int[] arr = {1,2,3,4,5};",
-  "Find the maximum product of any triplet (subsequence of size 3) in the array. Input: int[] arr = {10,3,5,6,20};",
+  `Find the maximum product of any triplet (subsequence of size 3) in the array. Input: int[] arr = {10,3,5,6,20};
+   Input: int[] arr = {-10, -3, 5, 6, -20};
+   Output: 1200 (10*6*20)
+  Steps to build the problem logic
+    1. Top 3 largest
+    2. Top 2 smallest
+    3. Maximum pair product
+    4. Maximum triplet product
+  
+  `,
   `Minimize the maximum difference between the heights after adding or subtracting k from each element. 
    Input: int k = 2; int[] arr = {1,5,8,10};
    Explanation: The array can be modified as [1+k, 5-k, 8-k, 10-k]= [3, 3, 6, 8]. 
@@ -533,6 +566,18 @@ map.put("gajju", 9);`,
 ];
 
 const QUESTIONS_DESIGN: string[] = [
+
+`Implement a specilized singlton design pattern which can return two instance alternatively`,
+
+  `
+  Singleton Design Pattern: Implement a Logger class that follows the singleton design pattern, ensuring that only one instance of the logger exists throughout the application. Include methods for logging messages at different levels (info, warning, error).
+  also show the lazay and eager initialization of singleton design pattern
+
+  1. How to make it cloneable free 
+  2. How to make it serializable free 
+  3. How to make it reflection free
+  `,
+
   "Design a Calculator class that supports basic arithmetic operations (add, subtract, multiply, divide) with proper error handling for division by zero."
 ];
 
@@ -551,12 +596,55 @@ const QUESTIONS_STACK: string[] = [
   s = "ab#c", t = "ad#c"
   Because s -> ac removed b (last character needs to remove after #)
   t -> ac -> removed the d (last character needs to remove after #)
-
+  
   ac == ac -> true
 
   Whatever # will be there that will remove each last character then
   Output:
   true
+  
+  Input:- 
+  s = "ab##"
+  t = "c#d#"
+
+  Output:- true
+
+  Input:-
+  s = "a##c"
+  t = "#a#c"
+ 
+  Output:- true
+
+  problem can be solved using:
+1. Stack (O(n) time, O(n) space)
+2. Two pointers from the end (O(n) time, O(1) space)
+3. Bruit force by building the final string after processing backspaces (O(n) time, O(n) space)
+
+
+`,
+
+`Remove Stars From a String (the one you mentioned)
+Input
+s = "leet**cod*e"
+Output
+"lecoe"
+
+Description:
+Given a string s, remove all stars * from the string. In addition, for each star removed, remove the closest non-star character to the left of the star. Return the resulting string after all stars have been removed.
+
+Example 1:
+Input: s = "leet**cod*e"
+Output: "lecoe"
+Explanation: Performing the removals from left to right:
+- The closest non-star character to the first star is 't', so we remove 't' and the first star, resulting in "lee*cod*e".
+- The closest non-star character to the second star is 'e', so we remove 'e' and the second star, resulting in "lecod*e".
+- The closest non-star character to the third star is 'd', so we remove 'd' and the third star, resulting in "lecoe".
+
+Example 2:
+Input: s = "erase*****"
+Output: ""
+Explanation: The entire string is removed, so we return an empty string.
+
 `
 
   // "Implement a stack using an array. Include methods for push, pop, peek, and isEmpty.",
