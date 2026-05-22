@@ -92,6 +92,10 @@ export default function TopBar({
             onChange={(e) => onTopicChange(e.target.value)}
             sx={{ minWidth: 240 }}
           >
+            <MenuItem value="all" sx={{ fontWeight: 700 }}>
+              🎲 All Topics ({solvedCounts?.all ?? 0}/
+              {topics.reduce((s, t) => s + t.questions.length, 0)})
+            </MenuItem>
             {topics.map((t) => {
               const solved = solvedCounts?.[t.id] ?? 0;
               const total = t.questions.length;

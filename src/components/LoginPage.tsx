@@ -11,7 +11,7 @@ import LocalFireDepartmentIcon from "@mui/icons-material/LocalFireDepartment";
 import { useEffect, useRef, useState } from "react";
 
 type Props = {
-  onLogin: (username: string) => void;
+  onLogin: (username: string, email?: string) => void;
 };
 
 type Mode = "login" | "signup";
@@ -35,7 +35,6 @@ export default function LoginPage({ onLogin }: Props) {
   const [mode, setMode] = useState<Mode>("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [quipIdx, setQuipIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -55,7 +54,7 @@ export default function LoginPage({ onLogin }: Props) {
     e.preventDefault();
     const name = username.trim();
     if (!name) return;
-    onLogin(name);
+    onLogin(name, email.trim() || undefined);
   };
 
   const quip = QUIPS[mode][quipIdx];
@@ -166,17 +165,6 @@ export default function LoginPage({ onLogin }: Props) {
 
           <Box component="form" onSubmit={handleSubmit}>
             <Stack spacing={2.5}>
-              {mode === "signup" && (
-                <TextField
-                  fullWidth
-                  label="Email (optional)"
-                  placeholder="you@example.com"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                />
-              )}
               <TextField
                 inputRef={inputRef}
                 fullWidth
@@ -195,12 +183,12 @@ export default function LoginPage({ onLogin }: Props) {
               {mode === "signup" && (
                 <TextField
                   fullWidth
-                  label="Password (optional)"
-                  placeholder="hunter2"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="new-password"
+                  label="Email (optional)"
+                  placeholder="you@example.com"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                 />
               )}
               <Button

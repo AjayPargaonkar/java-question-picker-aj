@@ -23,6 +23,9 @@ const TOPIC_KEY  = "java_practice_current_topic";
 const currentKey = (id: string) => `java_practice_current_${id}`;
 const codeKey    = (topicId: string, qid: number) => `java_practice_code_${topicId}_${qid}`;
 
+/** Synthetic topic id for "practice across every topic at once". */
+export const ALL_TOPIC_ID = "all";
+
 type Props = {
   themeMode: ThemeMode;
   onToggleTheme: () => void;
@@ -35,20 +38,44 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
   const [currentTopicId, setCurrentTopicId] = useState<string>(
     () => localStorage.getItem(TOPIC_KEY) || TOPICS[0].id
   );
-  const currentTopic = TOPICS.find((t) => t.id === currentTopicId) ?? TOPICS[0];
+  const isAll = currentTopicId === ALL_TOPIC_ID;
+  const realTopic = TOPICS.find((t) => t.id === currentTopicId);
 
-  // stable id for each question in the current topic — survives reordering
-  const qids = useMemo(
-    () => currentTopic.questions.map((q) => questionId(currentTopicId, q)),
-    [currentTopicId, currentTopic.questions]
+  // flat list of every question across all topics — used in mixed mode
+  const flatAll = useMemo(() => {
+    const out: { text: string; topicId: string }[] = [];
+    TOPICS.forEach((t) => t.questions.forEach((q) => out.push({ text: q, topicId: t.id })));
+    return out;
+  }, []);
+
+  // active question list + a parallel array of each question's REAL topic id
+  const questions = useMemo<string[]>(
+    () => (isAll ? flatAll.map((q) => q.text) : realTopic?.questions ?? TOPICS[0].questions),
+    [isAll, flatAll, realTopic]
   );
+  const questionTopicIds = useMemo<string[]>(() => {
+    if (isAll) return flatAll.map((q) => q.topicId);
+    const t = realTopic ?? TOPICS[0];
+    return t.questions.map(() => t.id);
+  }, [isAll, flatAll, realTopic]);
+
+  // stable id per question — survives reordering; recorded under the real topic
+  const qids = useMemo(
+    () => questions.map((text, i) => questionId(questionTopicIds[i], text)),
+    [questions, questionTopicIds]
+  );
+
+  const topicName = isAll ? "All Topics" : realTopic?.name ?? TOPICS[0].name;
+  const total = questions.length;
 
   // ---- progress (IndexedDB via Dexie) -------------------------------------
   const progressRows = useLiveQuery(
-    () => db.progress.where("topicId").equals(currentTopicId).toArray(),
-    [currentTopicId]
+    () =>
+      isAll
+        ? db.progress.toArray()
+        : db.progress.where("topicId").equals(currentTopicId).toArray(),
+    [isAll, currentTopicId]
   );
-  // solved questions of the current topic, expressed as array indices
   const solvedIds = useMemo(() => {
     const solvedQids = new Set(
       (progressRows ?? []).filter((r) => r.status === "solved").map((r) => r.qid)
@@ -70,10 +97,10 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
     (allSolved ?? []).forEach((r) => {
       if (out[r.topicId] !== undefined) out[r.topicId] += 1;
     });
-    // keep the current topic exact (only counts questions that still exist)
-    out[currentTopicId] = solvedIds.size;
+    if (!isAll) out[currentTopicId] = solvedIds.size;
+    out[ALL_TOPIC_ID] = isAll ? solvedIds.size : (allSolved ?? []).length;
     return out;
-  }, [allSolved, currentTopicId, solvedIds]);
+  }, [allSolved, currentTopicId, isAll, solvedIds]);
 
   // ---- session state ------------------------------------------------------
   const [currentId, setCurrentId] = useState<number | null>(() => {
@@ -84,7 +111,7 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
   const [code, setCode] = useState<string>(() => {
     if (currentId === null) return boilerplate("Pick a question to get started");
     const saved = localStorage.getItem(codeKey(currentTopicId, currentId));
-    return saved ?? boilerplate(currentTopic.questions[currentId] ?? "");
+    return saved ?? boilerplate(questions[currentId] ?? "");
   });
 
   const [output, setOutput] = useState<OutputState>({ text: "// Output will appear here after you Run.", kind: "idle" });
@@ -94,11 +121,11 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
 
   // self-heal: drop a stored question index that no longer exists
   useEffect(() => {
-    if (currentId !== null && currentId >= currentTopic.questions.length) {
+    if (currentId !== null && currentId >= total) {
       setCurrentId(null);
       setCode(boilerplate("Pick a question to get started"));
     }
-  }, [currentId, currentTopic.questions.length]);
+  }, [currentId, total]);
 
   const saveTimer = useRef<number | null>(null);
   useEffect(() => {
@@ -120,10 +147,14 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
     else localStorage.setItem(k, String(currentId));
   }, [currentId, currentTopicId]);
 
-  const total = currentTopic.questions.length;
   const allDone = total > 0 && solvedIds.size === total;
   const alreadySolved = currentId !== null && solvedIds.has(currentId);
-  const currentQuestion = currentId !== null ? currentTopic.questions[currentId] : null;
+  const currentQuestion = currentId !== null ? questions[currentId] ?? null : null;
+  // in mixed mode, show the real topic of the question on screen
+  const displayTopicName =
+    isAll && currentId !== null
+      ? TOPICS.find((t) => t.id === questionTopicIds[currentId])?.name ?? topicName
+      : topicName;
 
   const loadCodeFor = useCallback(
     (qid: number | null) => {
@@ -132,9 +163,9 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
         return;
       }
       const saved = localStorage.getItem(codeKey(currentTopicId, qid));
-      setCode(saved ?? boilerplate(currentTopic.questions[qid] ?? ""));
+      setCode(saved ?? boilerplate(questions[qid] ?? ""));
     },
-    [currentTopicId, currentTopic.questions]
+    [currentTopicId, questions]
   );
 
   // remembers the last few picked indices so the picker doesn't keep
@@ -143,7 +174,7 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
 
   const pickRandomFromSet = useCallback(
     (skipSolved: Set<number>) => {
-      const n = currentTopic.questions.length;
+      const n = questions.length;
       const unsolved: number[] = [];
       for (let i = 0; i < n; i++) {
         if (!skipSolved.has(i)) unsolved.push(i);
@@ -165,14 +196,14 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
       const idx = finalPool[Math.floor(Math.random() * finalPool.length)];
 
       // cap history so it can never swallow the whole pool
-      const cap = Math.min(5, Math.max(0, unsolved.length - 1));
+      const cap = Math.min(8, Math.max(0, unsolved.length - 1));
       recentRef.current = [idx, ...recentRef.current.filter((i) => i !== idx)].slice(0, cap);
 
       setCurrentId(idx);
       loadCodeFor(idx);
       setOutput({ text: "// Output will appear here after you Run.", kind: "idle" });
     },
-    [currentTopic.questions, currentId, loadCodeFor]
+    [questions, currentId, loadCodeFor]
   );
 
   const pickRandom = useCallback(() => pickRandomFromSet(solvedIds), [pickRandomFromSet, solvedIds]);
@@ -183,31 +214,40 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
     if (!qid) return;
     const next = new Set(solvedIds);
     next.add(currentId);
-    void recordSolved(qid, currentTopicId);
+    void recordSolved(qid, questionTopicIds[currentId]);
     pickRandomFromSet(next);
-  }, [currentId, qids, solvedIds, currentTopicId, pickRandomFromSet]);
+  }, [currentId, qids, questionTopicIds, solvedIds, pickRandomFromSet]);
 
   const resetAll = useCallback(() => {
-    if (!window.confirm(`Reset progress for "${currentTopic.name}"?`)) return;
-    void resetTopic(currentTopicId);
+    if (isAll) {
+      if (!window.confirm("Reset progress for ALL topics? This cannot be undone.")) return;
+      void Promise.all(TOPICS.map((t) => resetTopic(t.id)));
+    } else {
+      if (!window.confirm(`Reset progress for "${topicName}"?`)) return;
+      void resetTopic(currentTopicId);
+    }
     setCurrentId(null);
     recentRef.current = [];
     loadCodeFor(null);
-  }, [currentTopic.name, currentTopicId, loadCodeFor]);
+  }, [isAll, topicName, currentTopicId, loadCodeFor]);
 
   const switchTopic = useCallback((id: string) => {
+    const nextIsAll = id === ALL_TOPIC_ID;
     const next = TOPICS.find((t) => t.id === id);
-    if (!next) return;
+    if (!nextIsAll && !next) return;
     setCurrentTopicId(id);
     recentRef.current = [];
+    const nextQuestions = nextIsAll
+      ? TOPICS.flatMap((t) => t.questions)
+      : next!.questions;
     const rawCurrent = localStorage.getItem(currentKey(id));
     const parsed = rawCurrent !== null ? Number(rawCurrent) : null;
     const nextCurrent =
-      parsed !== null && parsed >= 0 && parsed < next.questions.length ? parsed : null;
+      parsed !== null && parsed >= 0 && parsed < nextQuestions.length ? parsed : null;
     setCurrentId(nextCurrent);
     const savedCode =
       nextCurrent !== null ? localStorage.getItem(codeKey(id, nextCurrent)) : null;
-    setCode(savedCode ?? boilerplate(nextCurrent !== null ? next.questions[nextCurrent] ?? "" : "Pick a question"));
+    setCode(savedCode ?? boilerplate(nextCurrent !== null ? nextQuestions[nextCurrent] ?? "" : "Pick a question"));
     setOutput({ text: "// Output will appear here after you Run.", kind: "idle" });
   }, []);
 
@@ -218,15 +258,15 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
     }
     if (!window.confirm("Reset this question's code to the starter template?")) return;
     localStorage.removeItem(codeKey(currentTopicId, currentId));
-    setCode(boilerplate(currentTopic.questions[currentId] ?? ""));
-  }, [currentId, currentTopicId, currentTopic.questions]);
+    setCode(boilerplate(questions[currentId] ?? ""));
+  }, [currentId, currentTopicId, questions]);
 
   const handleRun = useCallback(async () => {
     if (!code.trim() || isRunning) return;
     setIsRunning(true);
     setOutput({ text: "Sending to local Piston…", kind: "running" });
     if (currentId !== null && qids[currentId]) {
-      void recordAttempt(qids[currentId], currentTopicId, "run");
+      void recordAttempt(qids[currentId], questionTopicIds[currentId], "run");
     }
     try {
       const result = await runJava(code);
@@ -239,7 +279,7 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
     } finally {
       setIsRunning(false);
     }
-  }, [code, isRunning, currentId, qids, currentTopicId]);
+  }, [code, isRunning, currentId, qids, questionTopicIds]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -275,7 +315,7 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
         question={currentQuestion}
         index={currentId}
         total={total}
-        topicName={currentTopic.name}
+        topicName={displayTopicName}
         alreadySolved={alreadySolved}
         allDone={allDone && currentQuestion === null}
       />

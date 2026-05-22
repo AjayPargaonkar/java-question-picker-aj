@@ -11,8 +11,8 @@ export default function LoginRoute() {
     return <Navigate to="/" replace />;
   }
 
-  const handleLogin = (name: string) => {
-    signIn(name);
+  const handleLogin = (name: string, email?: string) => {
+    signIn(name, email);
     const dest = location.state?.from?.pathname || "/";
     navigate(dest, { replace: true });
   };

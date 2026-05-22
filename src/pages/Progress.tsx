@@ -56,10 +56,13 @@ export default function Progress({ themeMode, onToggleTheme }: Props) {
 
   const qIndex = useMemo(buildQuestionIndex, []);
 
-  const progress: ProgressRow[] =
-    useLiveQuery(() => db.progress.toArray(), []) ?? [];
-  const attempts: AttemptRow[] =
-    useLiveQuery(() => db.attempts.orderBy("at").reverse().limit(30).toArray(), []) ?? [];
+  const progressRaw = useLiveQuery(() => db.progress.toArray(), []);
+  const attemptsRaw = useLiveQuery(
+    () => db.attempts.orderBy("at").reverse().limit(30).toArray(),
+    []
+  );
+  const progress: ProgressRow[] = useMemo(() => progressRaw ?? [], [progressRaw]);
+  const attempts: AttemptRow[] = useMemo(() => attemptsRaw ?? [], [attemptsRaw]);
 
   // per-topic roll-up
   const topicStats = useMemo(() => {

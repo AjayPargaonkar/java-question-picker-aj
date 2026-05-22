@@ -1,17 +1,26 @@
 import Dexie, { type Table } from "dexie";
 
 /**
- * IndexedDB-backed progress tracking (via Dexie).
+ * IndexedDB-backed local data (via Dexie).
  *
- * Two stores:
+ * Stores:
  *  - progress: one row per question the user has touched (status + dates)
  *  - attempts: an append-only log — every run / solve, with a timestamp
+ *  - users:    the login record (username / email, no password)
  *
- * Everything is keyed by the stable `qid` from questionId.ts.
+ * Progress is keyed by the stable `qid` from questionId.ts.
  */
 
 export type QStatus = "attempted" | "solved";
 export type AttemptKind = "run" | "solved";
+
+export interface UserRow {
+  username: string;     // primary key
+  email: string | null;
+  createdAt: number;
+  lastLoginAt: number;
+  loginCount: number;
+}
 
 export interface ProgressRow {
   qid: string;          // primary key — stable question id
@@ -33,12 +42,19 @@ export interface AttemptRow {
 class PracticeDB extends Dexie {
   progress!: Table<ProgressRow, string>;
   attempts!: Table<AttemptRow, number>;
+  users!: Table<UserRow, string>;
 
   constructor() {
     super("JavaPracticeDB");
     this.version(1).stores({
       progress: "qid, topicId, status, solvedAt, updatedAt",
       attempts: "++id, qid, topicId, at, kind",
+    });
+    // v2 adds the users store (login records)
+    this.version(2).stores({
+      progress: "qid, topicId, status, solvedAt, updatedAt",
+      attempts: "++id, qid, topicId, at, kind",
+      users: "username, email, lastLoginAt",
     });
   }
 }
@@ -87,4 +103,32 @@ export async function resetTopic(topicId: string): Promise<void> {
     await db.progress.where("topicId").equals(topicId).delete();
     await db.attempts.where("topicId").equals(topicId).delete();
   });
+}
+
+/**
+ * Upsert the login record for a user. Stores username + optional email
+ * only — no password. Returns the saved row.
+ */
+export async function recordLogin(
+  username: string,
+  email?: string | null
+): Promise<UserRow> {
+  const now = Date.now();
+  const existing = await db.users.get(username);
+  const row: UserRow = existing
+    ? {
+        ...existing,
+        email: email ? email : existing.email,
+        lastLoginAt: now,
+        loginCount: existing.loginCount + 1,
+      }
+    : {
+        username,
+        email: email ?? null,
+        createdAt: now,
+        lastLoginAt: now,
+        loginCount: 1,
+      };
+  await db.users.put(row);
+  return row;
 }

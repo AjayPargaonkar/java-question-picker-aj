@@ -1,9 +1,10 @@
 import { createContext, useContext, ReactNode } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { recordLogin } from "../lib/db";
 
 type AuthValue = {
   user: string | null;
-  signIn: (name: string) => void;
+  signIn: (name: string, email?: string) => void;
   signOut: () => void;
 };
 
@@ -13,7 +14,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useLocalStorage<string | null>("java_practice_user", null);
   const value: AuthValue = {
     user,
-    signIn: (name) => setUser(name),
+    signIn: (name, email) => {
+      setUser(name);
+      // persist the login record to IndexedDB (username + optional email)
+      void recordLogin(name, email);
+    },
     signOut: () => setUser(null),
   };
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
