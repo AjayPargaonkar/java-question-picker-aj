@@ -12,6 +12,7 @@ import InsightsIcon from "@mui/icons-material/Insights";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { Topic } from "../data/questions";
 import type { ThemeMode } from "../theme";
+import { DIFFICULTIES, DIFFICULTY_COLOR, type Difficulty } from "../lib/difficulty";
 
 type Props = {
   topics?: Topic[];
@@ -24,6 +25,8 @@ type Props = {
   username?: string | null;
   onLogout?: () => void;
   hideTopicSelect?: boolean;
+  difficultyFilter?: Difficulty[];
+  onToggleDifficulty?: (d: Difficulty) => void;
 };
 
 const themeIcon = (mode: ThemeMode) =>
@@ -42,6 +45,8 @@ export default function TopBar({
   username,
   onLogout,
   hideTopicSelect,
+  difficultyFilter,
+  onToggleDifficulty,
 }: Props) {
   const initial = (username || "?").trim().charAt(0).toUpperCase();
   const navigate = useNavigate();
@@ -107,6 +112,35 @@ export default function TopBar({
               );
             })}
           </Select>
+        )}
+
+        {!hideTopicSelect && difficultyFilter && onToggleDifficulty && (
+          <Tooltip title="Filter which difficulties the picker draws from">
+            <Box sx={{ display: "flex", gap: 0.75 }}>
+              {DIFFICULTIES.map((d) => {
+                const active = difficultyFilter.includes(d);
+                return (
+                  <Chip
+                    key={d}
+                    label={d[0].toUpperCase() + d.slice(1)}
+                    size="small"
+                    onClick={() => onToggleDifficulty(d)}
+                    variant={active ? "filled" : "outlined"}
+                    sx={{
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      color: active ? "#fff" : DIFFICULTY_COLOR[d],
+                      bgcolor: active ? DIFFICULTY_COLOR[d] : "transparent",
+                      borderColor: DIFFICULTY_COLOR[d],
+                      "&:hover": {
+                        bgcolor: active ? DIFFICULTY_COLOR[d] : `${DIFFICULTY_COLOR[d]}22`,
+                      },
+                    }}
+                  />
+                );
+              })}
+            </Box>
+          </Tooltip>
         )}
 
         <Box sx={{ flex: 1 }} />

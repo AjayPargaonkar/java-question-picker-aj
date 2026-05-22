@@ -2,6 +2,7 @@ import { Box, Chip, IconButton, Paper, Tooltip, Typography } from "@mui/material
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import CheckIcon from "@mui/icons-material/Check";
 import { useState } from "react";
+import { DIFFICULTY_COLOR, type Difficulty } from "../lib/difficulty";
 
 type Props = {
   question: string | null;
@@ -10,9 +11,10 @@ type Props = {
   topicName: string;
   alreadySolved: boolean;
   allDone: boolean;
+  difficulty?: Difficulty | null;
 };
 
-export default function QuestionCard({ question, index, total, topicName, alreadySolved, allDone }: Props) {
+export default function QuestionCard({ question, index, total, topicName, alreadySolved, allDone, difficulty }: Props) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -36,7 +38,20 @@ export default function QuestionCard({ question, index, total, topicName, alread
   return (
     <Paper sx={{ p: 2, border: 1, borderColor: "divider" }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, gap: 1 }}>
-        <Chip label={badgeLabel} color={badgeColor} size="small" />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Chip label={badgeLabel} color={badgeColor} size="small" />
+          {question !== null && difficulty && (
+            <Chip
+              label={difficulty[0].toUpperCase() + difficulty.slice(1)}
+              size="small"
+              sx={{
+                fontWeight: 700,
+                color: "#fff",
+                bgcolor: DIFFICULTY_COLOR[difficulty],
+              }}
+            />
+          )}
+        </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           {question !== null && index !== null && (
             <Typography variant="caption" sx={{ opacity: 0.7 }}>

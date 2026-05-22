@@ -7,6 +7,7 @@ import "allotment/dist/style.css";
 import { TOPICS } from "../data/questions";
 import { boilerplate, getJavaVersion, runJava } from "../lib/piston";
 import { questionId } from "../lib/questionId";
+import { inferDifficulty, DIFFICULTIES, type Difficulty } from "../lib/difficulty";
 import { db, recordAttempt, recordSolved, resetTopic } from "../lib/db";
 import { useAuth } from "../context/AuthContext";
 import type { ThemeMode } from "../theme";
@@ -20,6 +21,7 @@ import CodeEditor from "../components/CodeEditor";
 import ShortcutsDialog from "../components/ShortcutsDialog";
 
 const TOPIC_KEY  = "java_practice_current_topic";
+const DIFF_KEY   = "java_practice_difficulty_filter";
 const currentKey = (id: string) => `java_practice_current_${id}`;
 const codeKey    = (topicId: string, qid: number) => `java_practice_code_${topicId}_${qid}`;
 
@@ -62,6 +64,12 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
   // stable id per question — survives reordering; recorded under the real topic
   const qids = useMemo(
     () => questions.map((text, i) => questionId(questionTopicIds[i], text)),
+    [questions, questionTopicIds]
+  );
+
+  // inferred difficulty per question (parallel to `questions`)
+  const difficulties = useMemo<Difficulty[]>(
+    () => questions.map((text, i) => inferDifficulty(questionTopicIds[i], text)),
     [questions, questionTopicIds]
   );
 
@@ -119,6 +127,34 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [javaVersion, setJavaVersion] = useState<string>("");
 
+  // which difficulties the picker draws from (defaults to all three)
+  const [difficultyFilter, setDifficultyFilter] = useState<Difficulty[]>(() => {
+    try {
+      const raw = localStorage.getItem(DIFF_KEY);
+      if (raw) {
+        const parsed = (JSON.parse(raw) as Difficulty[]).filter((d) =>
+          DIFFICULTIES.includes(d)
+        );
+        if (parsed.length) return parsed;
+      }
+    } catch {}
+    return [...DIFFICULTIES];
+  });
+  useEffect(() => {
+    localStorage.setItem(DIFF_KEY, JSON.stringify(difficultyFilter));
+  }, [difficultyFilter]);
+
+  const toggleDifficulty = useCallback((d: Difficulty) => {
+    setDifficultyFilter((prev) => {
+      if (prev.includes(d)) {
+        if (prev.length === 1) return prev; // keep at least one selected
+        return prev.filter((x) => x !== d);
+      }
+      // keep canonical easy → medium → hard order
+      return DIFFICULTIES.filter((x) => prev.includes(x) || x === d);
+    });
+  }, []);
+
   // self-heal: drop a stored question index that no longer exists
   useEffect(() => {
     if (currentId !== null && currentId >= total) {
@@ -175,9 +211,10 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
   const pickRandomFromSet = useCallback(
     (skipSolved: Set<number>) => {
       const n = questions.length;
+      const allowed = new Set(difficultyFilter);
       const unsolved: number[] = [];
       for (let i = 0; i < n; i++) {
-        if (!skipSolved.has(i)) unsolved.push(i);
+        if (!skipSolved.has(i) && allowed.has(difficulties[i])) unsolved.push(i);
       }
       if (unsolved.length === 0) {
         setCurrentId(null);
@@ -203,7 +240,7 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
       loadCodeFor(idx);
       setOutput({ text: "// Output will appear here after you Run.", kind: "idle" });
     },
-    [questions, currentId, loadCodeFor]
+    [questions, difficulties, difficultyFilter, currentId, loadCodeFor]
   );
 
   const pickRandom = useCallback(() => pickRandomFromSet(solvedIds), [pickRandomFromSet, solvedIds]);
@@ -318,6 +355,7 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
         topicName={displayTopicName}
         alreadySolved={alreadySolved}
         allDone={allDone && currentQuestion === null}
+        difficulty={currentId !== null ? difficulties[currentId] : null}
       />
       <Box sx={{ mt: "auto" }}>
         <ActionButtons
@@ -365,6 +403,8 @@ export default function Practice({ themeMode, onToggleTheme }: Props) {
         onToggleTheme={onToggleTheme}
         username={user}
         onLogout={signOut}
+        difficultyFilter={difficultyFilter}
+        onToggleDifficulty={toggleDifficulty}
       />
       <Box sx={{ flex: 1, minHeight: 0 }}>
         {isNarrow ? (
