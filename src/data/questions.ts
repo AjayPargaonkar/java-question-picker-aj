@@ -33,6 +33,104 @@ const QUESTIONS_BASICS: string[] = [
 ];
 
 const QUESTIONS_ARRAYS: string[] = [
+`
+Two sum problem
+1.Given an array of integers nums and an integer target, return the indices of two numbers such that they add up to the target.
+nums = [2, 7, 11, 15]
+target = 9
+
+varient
+2. Return Numbers Instead of Indices
+nums = [2, 7, 11, 15]
+target = 9
+Outupt:- 
+[2,7]
+
+3. Count Number of Pairs
+Input
+nums = [1, 2, 3, 4, 5]
+target = 5
+
+
+4. Print All Pairs
+Input
+nums = [1,2,3,4,5]
+target = 5
+
+Output:-
+(1,4)
+(2,3)
+
+Two Sum in Sorted Array
+Array is already sorted.
+Input
+nums = [1,2,4,6,10]
+target = 8
+Output
+[2,4]
+
+Use Two Pointers:
+
+left = 0
+right = n - 1
+
+Time: O(n)
+Space: O(1)
+
+Find Pair Closest to Target
+Input
+nums = [1,3,4,7,10]
+target = 15
+`,
+`
+Three sum problem
+Given an integer array nums, return all the triplets [nums[i], nums[j], nums[k]] such that i != j, i != k, and j != k, and nums[i] + nums[j] + nums[k] == 0. 
+Example 1:
+Input: nums = [-1,0,1,2,-1,-4]
+Output: [[-1,-1,2],[-1,0,1]]
+Explanation: 
+nums[0] + nums[1] + nums[2] = (-1) + 0 + 1 = 0.
+nums[1] + nums[2] + nums[4] = 0 + 1 + (-1) = 0.
+nums[0] + nums[3] + nums[4] = (-1) + 2 + (-1) = 0.
+The distinct triplets are [-1,0,1] and [-1,-1,2].
+Notice that the order of the output and the order of the triplets does not matter.
+
+Example 2:
+Input: nums = [0,1,1]
+Output: []
+Explanation: The only possible triplet does not sum up to 0.
+
+Example 3:
+Input: nums = [0,0,0]
+Output: [[0,0,0]]
+Explanation: The only possible triplet sums up to 0.
+
+To solve this question first need to try
+The Sub-Problem: (needs to solve using two pointers only)
+Given a sorted array of numbers and a target value, find two numbers that add up exactly to that target.
+Input: nums = [1, 2, 4, 5, 8, 11], target = 13
+
+Output: [2, 11] (or their indices depending on the requirement)
+`,
+
+`
+Find whether the array is fibnoccie or not ?
+Input:- 
+int [] b= {0,1,1,2,3,5,8,13,20};
+Output:- 
+False
+
+int [] b= {0,1,1,2,3,5,8,13,21};
+Output:- 
+true
+
+
+`,
+  `
+From an array of random natural numbers, return the distance/difference between the two closest numbers.
+int[] myArray = {19, 50, 99, 7, 98, 14, 65};
+99 and 98 are closest and distance between these is 99-98=1
+  `,
   `
 Finding the sum of digits of a number until the sum becomes a single digit.
 Input : 1234
@@ -59,7 +157,6 @@ Output : 4
  1. HashSet to track seen numbers (O(n) time, O(n) space)
  2. Sorting the array and checking adjacent elements (O(n log n) time, O(1) space)
  3. Floyd's Tortoise and Hare (Cycle Detection) algorithm (O(n) time, O(1) space)
-
   `,
   "Find the pair in the array whose sum equals a target. Input: int[] arr = {2,7,11,15}; target = 9;",
   `Find the maximum subarray sum (Kadane's algorithm). 
@@ -189,12 +286,27 @@ Output : 4
 ];
 
 const QUESTIONS_STRINGS: string[] = [
-  "Find the longest substring without repeating characters. Input: \"abcabcbb\"; Output: 3",
+  `Find the longest substring without repeating characters. 
+  Input: \"abcabcbb\"; Output: 3
+  Input: \"bbbb\"; Output: 1
+
+  Try to solve first 
+  1. O(N3) 3 loops
+  2. O(N2) 2 for loops
+  3. O(N) 1 for loop and 1 while loop
+  4. O(N) optimal solution
+  `,
+
   `
     Find the longest palindromic substring
     Example 1:
     Input: "babad"
     Output: "bab" (or "aba" — both are valid, length 3)
+
+    To understand solve this question first try with mini problems 
+    1.Print all possible substrings
+    2.Check If a Single Substring is a Palindrome
+    3.Combine Them (The Brute Force Solution)
   `,
 
   "Check if one string is a rotation of another. Input: str1 = \"abcde\", str2 = \"cdeab\";",
@@ -229,8 +341,6 @@ Output:
 Input:
 haystack = "abc"
   `,  
-
-  
   `Group anagrams from an array of strings Input: String arr[] = {"eat", "tea", "tan", "ate", "nat", "bat"}; Output:- {aet=[eat, tea, ate], abt=[bat], ant=[tan, nat]}`,
 
   "Valid parentheses — check if a string of brackets is balanced. Input: \"({[]})\" → true; Input: \"({[})\" → false.",
